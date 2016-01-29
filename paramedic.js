@@ -15,11 +15,24 @@ var TIMEOUT = 10 * 60 * 1000; // 10 minutes in msec - this will become a param
 
 
 function ParamedicRunner(_platformId,_plugins,_callback,bJustBuild,nPort,msTimeout,browserify,bSilent,bVerbose,platformPath) {
+
+    //platform could contain @version so split and carry on.
+
+    var indexOfAt = _platformId.indexOf('@');
+
+    if (indexOfAt !== -1){
+        this.platformVersion = _platformId.substring(indexOfAt+1);
+        this.platformId = _platformId.substring(0,indexOfAt);
+    } else {
+        this.platformVersion = null;
+        this.platformId = _platformId;
+    }
+
+
     this.tunneledUrl = "";
     this.port = nPort;
     this.justBuild = bJustBuild;
     this.plugins = _plugins;
-    this.platformId = _platformId;
     this.callback = _callback;
     this.tempFolder = null;
     this.timeout = msTimeout;
@@ -31,7 +44,7 @@ function ParamedicRunner(_platformId,_plugins,_callback,bJustBuild,nPort,msTimeo
     } else {
         this.browserify = '';
     }
-    
+
     if(bSilent) {
         var logOutput = this.logOutput = [];
         this.logMessage = function(msg) {
@@ -135,7 +148,7 @@ ParamedicRunner.prototype = {
         this.logMessage("cordova-paramedic: starting local medic server " + this.platformId);
         var self = this;
         var server = http.createServer(this.requestListener.bind(this));
-        
+
         server.listen(this.port, '127.0.0.1',function onServerConnect() {
 
             switch(self.platformId) {
@@ -188,10 +201,10 @@ ParamedicRunner.prototype = {
                     try {
                         //logMessage("body = " + body);
                         var results = JSON.parse(body);
-                        self.logMessage("Results: ran " + 
-                                        results.mobilespec.specs + 
-                                        " specs with " + 
-                                        results.mobilespec.failures + 
+                        self.logMessage("Results: ran " +
+                                        results.mobilespec.specs +
+                                        " specs with " +
+                                        results.mobilespec.failures +
                                         " failures");
                         if(results.mobilespec.failures > 0) {
                             self.cleanUpAndExitWithCode(1,results);
@@ -199,7 +212,7 @@ ParamedicRunner.prototype = {
                         else {
                             self.cleanUpAndExitWithCode(0,results);
                         }
-                        
+
                     }
                     catch(err) {
                         self.logMessage("parse error :: " + err);
@@ -222,15 +235,20 @@ ParamedicRunner.prototype = {
         var self = this;
 
         var plat = this.platformPath || this.platformId;
+
+        if (this.platformVersion !== null){
+            plat = plat + '@'+this.platformVersion;
+        }
+
         this.logMessage("cordova-paramedic: adding platform : " + plat);
 
         shell.exec('cordova platform add ' + plat,{silent:!this.verbose});
-        shell.exec('cordova prepare '+ this.browserify,{silent:!this.verbose});   
+        shell.exec('cordova prepare '+ this.browserify,{silent:!this.verbose});
 
         if(this.justBuild) {
 
             this.logMessage("building ...");
-            
+
             shell.exec('cordova build ' + this.platformId.split("@")[0],
                 {async:true,silent:!this.verbose},
                 function(code,output){
@@ -289,7 +307,7 @@ exports.run = function(_platformId,_plugins,_callback,bJustBuild,nPort,msTimeout
         // make it an array if it's not
         var plugins = Array.isArray(_plugins) ? _plugins : [_plugins];
 
-        // if we are passed a callback, we will use it, 
+        // if we are passed a callback, we will use it,
         // otherwise just make a quick and dirty one
         var callback = ( _callback && _callback.apply ) ? _callback : function(resCode,resObj) {
             process.exit(resCode);
